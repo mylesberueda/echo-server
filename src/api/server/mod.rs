@@ -1,4 +1,4 @@
-use axum::extract::Query;
+use axum::extract::{Query, Request};
 use axum::response::IntoResponse;
 use axum::{Json, routing::get};
 use serde_json::json;
@@ -52,16 +52,31 @@ mod index {
         status: Option<u16>,
     }
 
-    pub(super) async fn post(
-        Query(query): Query<StatusQuery>,
-        Json(payload): Json<serde_json::Value>,
-    ) -> impl IntoResponse {
+    pub(super) async fn post(Query(query): Query<StatusQuery>, req: Request) -> impl IntoResponse {
         let status_code = query
             .status
             .and_then(|s| axum::http::StatusCode::from_u16(s).ok())
             .unwrap_or(axum::http::StatusCode::OK);
 
-        tracing::debug!("{payload}");
+        let headers: serde_json::Map<String, serde_json::Value> = req
+            .headers()
+            .iter()
+            .map(|(name, value)| {
+                (
+                    name.to_string(),
+                    serde_json::Value::String(value.to_str().unwrap_or("<binary>").to_string()),
+                )
+            })
+            .collect();
+
+        let body_bytes = axum::body::to_bytes(req.into_body(), usize::MAX)
+            .await
+            .unwrap_or_default();
+
+        let payload: serde_json::Value = serde_json::from_slice(&body_bytes)
+            .unwrap_or(json!({"_raw": String::from_utf8_lossy(&body_bytes).to_string()}));
+
+        tracing::debug!("{:#}", json!({ "headers": headers, "payload": payload }));
 
         (status_code, Json(payload))
     }
