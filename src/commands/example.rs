@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #[derive(clap::Args)]
 pub(crate) struct Arguments {
     #[clap(subcommand)]

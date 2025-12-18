@@ -48,7 +48,7 @@ mod index {
     }
 
     #[derive(serde::Deserialize)]
-    struct StatusQuery {
+    pub(crate) struct StatusQuery {
         status: Option<u16>,
     }
 
@@ -60,6 +60,8 @@ mod index {
             .status
             .and_then(|s| axum::http::StatusCode::from_u16(s).ok())
             .unwrap_or(axum::http::StatusCode::OK);
+
+        tracing::debug!("{payload}");
 
         (status_code, Json(payload))
     }

@@ -18,6 +18,7 @@ struct Cli {
 #[derive(clap::Subcommand)]
 #[command(arg_required_else_help = true)]
 enum Commands {
+    /// Server command
     Server(server::Arguments),
 }
 
