@@ -26,7 +26,9 @@ impl Server {
 
         let app = Router::new()
             .route("/", get(index::get).post(index::post))
-            .route("/ping", get(ping::get));
+            .route("/load-test", get(load_test::get))
+            .route("/ping", get(ping::get))
+            .layer(tower_http::trace::TraceLayer::new_for_http());
 
         let host = host.as_deref().unwrap_or("0.0.0.0");
         let port = port.as_deref().unwrap_or("3500");
@@ -79,6 +81,54 @@ mod index {
         tracing::debug!("{:#}", json!({ "headers": headers, "payload": payload }));
 
         (status_code, Json(payload))
+    }
+}
+
+mod load_test {
+    use super::*;
+
+    const LOREM_IPSUM: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. \
+        Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim \
+        veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. \
+        Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat \
+        nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia \
+        deserunt mollit anim id est laborum.";
+
+    #[derive(serde::Deserialize)]
+    pub(super) struct LoadTestQuery {
+        count: Option<usize>,
+    }
+
+    #[derive(serde::Serialize)]
+    struct LoadTestResponse<'a> {
+        lorem_ipsum: &'a str,
+        count: usize,
+        items: Vec<LoadTestItem<'a>>,
+    }
+
+    #[derive(serde::Serialize)]
+    struct LoadTestItem<'a> {
+        index: usize,
+        value: String,
+        raw: &'a str,
+    }
+
+    pub(super) async fn get(Query(query): Query<LoadTestQuery>) -> impl IntoResponse {
+        let count = query.count.unwrap_or(1);
+
+        let items: Vec<LoadTestItem> = (0..count)
+            .map(|i| LoadTestItem {
+                index: i,
+                value: format!("item_{i}"),
+                raw: LOREM_IPSUM,
+            })
+            .collect();
+
+        Json(LoadTestResponse {
+            count,
+            lorem_ipsum: LOREM_IPSUM,
+            items,
+        })
     }
 }
 
